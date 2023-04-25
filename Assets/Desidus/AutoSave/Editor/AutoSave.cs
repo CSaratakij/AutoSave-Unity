@@ -37,6 +37,7 @@ using It.Desidus.EditorExtensions;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace It.Desidus.EditorExtensions
 {
@@ -57,7 +58,7 @@ namespace It.Desidus.EditorExtensions
 		/// </summary>
 		private const string DATE_FORMAT = "yyyy/MM/dd HH:mm:ss.f";
 
-		private const int DEFAULT_SAVE_MINUTES = 10;
+		private const int DEFAULT_SAVE_MINUTES = 30;
 
 		private const string SAVE_MIN_PREF = "DAS_SaveMin";
 		private const string ENABLED_PREF = "DAS_Enabled";
@@ -74,7 +75,7 @@ namespace It.Desidus.EditorExtensions
 		// If you want to increase the time ranges in the AutoSave preferences //
 		// tab, modify the following values.								   //  
 		// /////////////////////////////////////////////////////////////////// //
-		private const int MAX_SAVE_MINUTES = 30;
+		private const int MAX_SAVE_MINUTES = 60;
 		private const int MAX_POPUP_TIMEOUT = 30;
 
 #endregion
@@ -89,7 +90,7 @@ namespace It.Desidus.EditorExtensions
 		{
 			get
 			{
-				return EditorPrefs.GetBool(ENABLED_PREF, true);
+				return EditorPrefs.GetBool(ENABLED_PREF, false);
 			}
 			private set
 			{
@@ -128,7 +129,7 @@ namespace It.Desidus.EditorExtensions
 		{
 			get
 			{
-				return EditorPrefs.GetBool(ONPLAY_PREF, true);
+				return EditorPrefs.GetBool(ONPLAY_PREF, false);
 			}
 			private set
 			{
@@ -192,7 +193,7 @@ namespace It.Desidus.EditorExtensions
 		{
 			get
 			{
-				return EditorPrefs.GetInt(TIMEOUT_PREF, 10);
+				return EditorPrefs.GetInt(TIMEOUT_PREF, 15);
 			}
 			private set
 			{
@@ -369,7 +370,7 @@ namespace It.Desidus.EditorExtensions
 						SettingsLabels.timeout,
 						PopupTimeout,
 						1,
-						30);
+						MAX_POPUP_TIMEOUT);
 					GUILayout.Label(SettingsLabels.seconds, GUILayout.MaxWidth(30));
 					EditorGUILayout.EndHorizontal();
 				}			
@@ -607,6 +608,28 @@ namespace It.Desidus.EditorExtensions
 			}
 		}
 
+		static void OnSceneSaved(Scene scene)
+		{
+			bool shouldResetSaveCounter = false;
+
+			for (int i = 0; i < EditorSceneManager.sceneCount; ++i)
+			{
+				var openScene = EditorSceneManager.GetSceneAt(i);
+				bool isMatch = (scene.name == openScene.name);
+
+				if (isMatch)
+				{
+					shouldResetSaveCounter = true;
+					break;
+				}
+			}
+
+			if (shouldResetSaveCounter)
+			{
+				LastSaveTime = DateTime.Now;		
+			}
+		}
+
 		static string EnableAutoSave()
 		{
 			EditorApplication.update -= OnUpdate;
@@ -620,7 +643,10 @@ namespace It.Desidus.EditorExtensions
 				EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
 				EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
 			}
-			#endif
+#endif
+
+			EditorSceneManager.sceneSaved -= OnSceneSaved;
+			EditorSceneManager.sceneSaved += OnSceneSaved;
 
 			AutoSaveEnabled = true;
 
@@ -643,6 +669,7 @@ namespace It.Desidus.EditorExtensions
 			{
 				EditorApplication.update -= OnUpdate;
 				EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+				EditorSceneManager.sceneSaved -= OnSceneSaved;
 				AutoSaveEnabled = false;
 			}
 
